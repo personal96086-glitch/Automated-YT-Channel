@@ -1,25 +1,32 @@
 name: Generate Weekly Video
 on:
-  schedule:
-    - cron: '0 0 * * 1' # Runs every Monday at midnight
-  workflow_dispatch: # Allows you to run it manually for testing
+  workflow_dispatch: 
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+      
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: '3.9'
-      - name: Install dependencies
+
+      - name: Install System Dependencies
         run: |
-          pip install google-generativeai moviepy edge-tts requests
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg imagemagick
+
+      - name: Install Python Libraries
+        run: |
+          pip install google-generativeai moviepy==1.0.3 edge-tts requests
+
       - name: Run Script
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python main.py
+
       - name: Upload Video
         uses: actions/upload-artifact@v4
         with:
