@@ -5,42 +5,44 @@ import asyncio
 from moviepy.editor import ImageClip, AudioFileClip, concatenate_videoclips
 from edge_tts import Communicate
 
-# Setup Gemini
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+# Use absolute path to avoid "File Not Found" errors
+current_dir = os.getcwd()
+output_path = os.path.join(current_dir, "output_video.mp4")
+
+genai.configure(api_key=os.environ["GEMINI_API_KEY"])
 model = genai.GenerativeModel('gemini-1.5-flash')
 
-async def generate_video():
+async def make_video():
+    print("Starting video creation...")
     try:
-        # 1. Get Script
-        prompt = "Write a 1-minute motivational script about consistency. Break it into 3 short paragraphs."
-        response = model.generate_content(prompt)
-        segments = response.text.split('\n\n')
+        resp = model.generate_content("Write 3 short motivational sentences.")
+        lines = resp.text.split('.')
         
         clips = []
-        # 2. Process first 3 segments
-        for i, text in enumerate(segments[:3]):
-            if len(text.strip()) < 5: continue
+        for i, line in enumerate(lines[:3]):
+            if len(line.strip()) < 5: continue
             
-            # Voice
-            audio_file = f"v_{i}.mp3"
-            await Communicate(text, "en-US-ChristopherNeural").save(audio_file)
+            audio_file = os.path.join(current_dir, f"{i}.mp3")
+            img_file = os.path.join(current_dir, f"{i}.jpg")
             
-            # Image
-            img_url = f"https://image.pollinations.ai/prompt/3d%20animation%20style%20productivity%20scene%20{i}?width=1280&height=720&nologo=true"
-            with open(f"i_{i}.jpg", 'wb') as f:
+            await Communicate(line, "en-US-ChristopherNeural").save(audio_file)
+            
+            img_url = f"https://image.pollinations.ai/prompt/3d%20render%20productivity%20{i}?width=1280&height=720&nologo=true"
+            with open(img_file, 'wb') as f:
                 f.write(requests.get(img_url).content)
-                
-            # Create Clip
-            a_clip = AudioFileClip(audio_file)
-            i_clip = ImageClip(f"i_{i}.jpg").set_duration(a_clip.duration).set_fps(24)
-            clips.append(i_clip.set_audio(a_clip))
-
-        # 3. Export
+            
+            audio = AudioFileClip(audio_file)
+            img = ImageClip(img_file).set_duration(audio.duration).set_fps(24)
+            clips.append(img.set_audio(audio))
+            
         final = concatenate_videoclips(clips, method="compose")
-        final.write_videofile("output_video.mp4", fps=24, codec="libx264")
+        # EXPLICIT PATH SAVING
+        final.write_videofile(output_path, fps=24, codec="libx264", audio_codec="aac")
+        print(f"Video saved successfully at {output_path}")
+        
     except Exception as e:
-        print(f"Error occurred: {e}")
+        print(f"Error: {e}")
 
 if __name__ == "__main__":
-    asyncio.run(generate_video())
-  
+    asyncio.run(make_video())
+    
